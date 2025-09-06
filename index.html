@@ -1,214 +1,368 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ScrumIQ - Scrum Board</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" rel="stylesheet">
-  <style>
-    body { padding: 20px; }
-    .board { display: flex; gap: 15px; overflow-x: auto; margin-bottom: 30px; }
-    .column { flex: 0 0 250px; background: #f8f9fa; padding: 10px; border-radius: 5px; min-height: 300px; }
-    .column h5 { text-align: center; margin-bottom: 10px; }
-    .card { margin-bottom: 10px; cursor: grab; padding: 5px 10px; border-radius: 4px; color: #fff; }
-    .close-btn { float: right; cursor: pointer; font-weight: bold; }
-    #backlogTable th, #backlogTable td { vertical-align: middle; }
-    .droppable { min-height: 50px; }
-  </style>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ScrumIQ - Scrum Board</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" rel="stylesheet" />
+    <style>
+      body {
+        padding: 20px;
+      }
+      .board {
+        display: flex;
+        gap: 15px;
+        overflow-x: auto;
+        margin-bottom: 30px;
+      }
+      .column {
+        flex: 1;
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 5px;
+        min-height: 300px;
+        display: flex;
+        flex-direction: column;
+        transition: background 0.2s;
+      }
+      .column h5 {
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      .card {
+        margin-bottom: 10px;
+        cursor: grab;
+        padding: 8px 10px;
+        border-radius: 6px;
+        color: #fff;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        animation: fadeIn 0.3s ease;
+      }
+      .card .project-pill {
+        align-self: flex-end;
+        font-size: 0.7rem;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 2px 6px;
+        border-radius: 12px;
+        margin-bottom: 4px;
+      }
+      .card .title {
+        font-size: 0.9rem;
+        font-weight: 500;
+        word-break: break-word;
+      }
 
-<div class="container">
-  <h2 class="mb-4">ScrumIQ</h2>
-  
-  <!-- Project Selector -->
-  <div class="mb-3">
-    <label for="projectSelect" class="form-label">Select Project:</label>
-    <select id="projectSelect" class="form-select"></select>
-    <button class="btn btn-primary mt-2" id="addProjectBtn">Add Project</button>
-  </div>
+      .close-btn {
+        float: right;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      #backlogTable th,
+      #backlogTable td {
+        vertical-align: middle;
+      }
+      .droppable {
+        flex: 1;
+        min-height: 50px;
+      }
+      .placeholder {
+        text-align: center;
+        color: #6c757d;
+        font-style: italic;
+        height: 50px;
+        transition: background 0.2s;
+      }
+      tr.placeholder {
+        display: table-row;
+      }
+      .highlight {
+        background-color: #cce5ff !important;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-5px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2 class="mb-4">ScrumIQ</h2>
 
-  <!-- Add Story/Bug -->
-  <div class="mb-3">
-    <input type="text" id="storyTitle" class="form-control mb-2" placeholder="Story / Bug title">
-    <select id="storyType" class="form-select mb-2">
-      <option value="Story">Story</option>
-      <option value="Bug">Bug</option>
-    </select>
-    <button class="btn btn-success" id="addStoryBtn">Add to Backlog</button>
-  </div>
+      <!-- Project Selector -->
+      <div class="mb-3">
+        <label for="projectSelect" class="form-label">Select Project:</label>
+        <select id="projectSelect" class="form-select"></select>
+        <button class="btn btn-primary mt-2" id="addProjectBtn">Add Project</button>
+      </div>
 
-  <!-- Scrum Board Columns -->
-  <div class="board">
-    <div class="column" data-stage="todo">
-      <h5>To Do</h5>
-      <div class="droppable"></div>
+      <!-- Add Story/Bug -->
+      <div class="mb-3">
+        <input type="text" id="storyTitle" class="form-control mb-2" placeholder="Story / Bug title" />
+        <select id="storyType" class="form-select mb-2">
+          <option value="Story">Story</option>
+          <option value="Bug">Bug</option>
+        </select>
+        <button class="btn btn-success" id="addStoryBtn">Add to Backlog</button>
+      </div>
+
+      <!-- Scrum Board Columns -->
+      <div class="board">
+        <div class="column" data-stage="todo">
+          <h5>To Do</h5>
+          <div class="droppable"></div>
+        </div>
+        <div class="column" data-stage="inprogress">
+          <h5>In Progress</h5>
+          <div class="droppable"></div>
+        </div>
+        <div class="column" data-stage="qa">
+          <h5>QA</h5>
+          <div class="droppable"></div>
+        </div>
+        <div class="column" data-stage="done">
+          <h5>Done</h5>
+          <div class="droppable"></div>
+        </div>
+      </div>
+
+      <!-- Backlog Table -->
+      <h5>Backlog</h5>
+      <table class="table table-striped" id="backlogTable">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Project</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
-    <div class="column" data-stage="inprogress">
-      <h5>In Progress</h5>
-      <div class="droppable"></div>
-    </div>
-    <div class="column" data-stage="qa">
-      <h5>QA</h5>
-      <div class="droppable"></div>
-    </div>
-    <div class="column" data-stage="done">
-      <h5>Done</h5>
-      <div class="droppable"></div>
-    </div>
-  </div>
 
-  <!-- Backlog Table -->
-  <h5>Backlog</h5>
-  <table class="table table-striped" id="backlogTable">
-    <thead>
-      <tr>
-        <th>Title</th>
-        <th>Type</th>
-        <th>Project</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</div>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      $(function () {
+        const stages = ["backlog", "todo", "inprogress", "qa", "done"];
+        let projects = JSON.parse(localStorage.getItem("projects") || "[]");
+        let tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
 
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-$(function() {
-  const stages = ['backlog', 'todo', 'inprogress', 'qa', 'done'];
-  let projects = JSON.parse(localStorage.getItem('projects') || '[]');
-  let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+        function saveData() {
+          localStorage.setItem("projects", JSON.stringify(projects));
+          localStorage.setItem("tasks", JSON.stringify(tasks));
+        }
 
-  function saveData() {
-    localStorage.setItem('projects', JSON.stringify(projects));
-    localStorage.setItem('tasks', JSON.stringify(tasks));
-  }
+        function renderProjects() {
+          $("#projectSelect").empty();
+          projects.forEach((p, idx) => {
+            $("#projectSelect").append(`<option value="${idx}">${p.name}</option>`);
+          });
+        }
 
-  function renderProjects() {
-    $('#projectSelect').empty();
-    projects.forEach((p, idx) => {
-      $('#projectSelect').append(`<option value="${idx}">${p.name}</option>`);
-    });
-  }
+        function renderTasks() {
+          $(".droppable").empty();
+          $("#backlogTable tbody").empty();
 
-  function renderTasks() {
-    // Clear columns
-    $('.droppable').empty();
-    $('#backlogTable tbody').empty();
+          let backlogEmpty = true;
 
-    tasks.forEach(task => {
-      const project = projects[task.project] || {color:'#6c757d'};
-      if(task.closed) return; // Skip closed tasks
+          tasks.forEach((task) => {
+            const project = projects[task.project] || { name: "Unknown", color: "#6c757d" };
+            if (task.closed) return;
 
-      const $card = $(`<div class="card" data-id="${task.id}" style="background-color:${project.color}">${task.title} (${task.type})${task.stage==='done'?'<span class="close-btn">&times;</span>':''}</div>`);
-
-      if(task.stage === 'backlog') {
-        $('#backlogTable tbody').append(`
+            if (task.stage === "backlog") {
+              backlogEmpty = false;
+              $("#backlogTable tbody").append(`
           <tr data-id="${task.id}">
             <td>${task.title}</td>
             <td>${task.type}</td>
             <td>${project.name}</td>
-            <td><span class="btn btn-sm btn-primary move-btn">Start Work</span></td>
+            <td><span class="btn btn-sm btn-primary move-btn">Move</span></td>
           </tr>
         `);
-      } else {
-        $(`.column[data-stage="${task.stage}"] .droppable`).append($card);
-      }
-    });
+            } else {
+              const $card = $(`
+          <div class="card" data-id="${task.id}" style="background-color:${project.color}">
+            <div class="project-pill">${project.name}</div>
+            <div class="title">${task.title}</div>
+            ${task.stage === "done" ? '<span class="close-btn">&times;</span>' : ""}
+          </div>
+        `);
+              $(`.column[data-stage="${task.stage}"] .droppable`).append($card.hide().fadeIn(200));
+            }
+          });
 
-    makeDraggable();
-  }
+          $("#backlogTable tbody").append(`
+      <tr class="placeholder" data-id="placeholder">
+        <td colspan="4">Drag tasks here to add to backlog</td>
+      </tr>
+    `);
 
-  function addTask(title, type, projectIdx) {
-    tasks.push({
-      id: Date.now(),
-      title,
-      type,
-      project: projectIdx,
-      stage: 'backlog',
-      closed: false
-    });
-    saveData();
-    renderTasks();
-  }
+          makeDraggable();
+          makeBacklogDroppable();
+        }
 
-  function addProject(name, color) {
-    projects.push({name, color});
-    saveData();
-    renderProjects();
-  }
-
-  function makeDraggable() {
-    $('.card').draggable({
-      revert: 'invalid',
-      helper: 'clone',
-      start: function(e, ui) { $(this).hide(); },
-      stop: function(e, ui) { $(this).show(); }
-    });
-
-    $('.droppable').droppable({
-      accept: '.card',
-      drop: function(event, ui) {
-        const id = ui.draggable.data('id');
-        const task = tasks.find(t => t.id == id);
-        if(task) {
-          task.stage = $(this).closest('.column').data('stage');
+        function addTask(title, type, projectIdx) {
+          tasks.push({
+            id: Date.now(),
+            title,
+            type,
+            project: projectIdx,
+            stage: "backlog",
+            closed: false,
+          });
           saveData();
           renderTasks();
         }
-      }
-    });
-  }
 
-  // Initial render
-  renderProjects();
-  renderTasks();
+        function addProject(name, color) {
+          projects.push({ name, color });
+          saveData();
+          renderProjects();
+        }
 
-  // Add project
-  $('#addProjectBtn').click(() => {
-    const name = prompt("Project Name:");
-    const color = prompt("Project Color (hex code or bootstrap color):", "#"+Math.floor(Math.random()*16777215).toString(16));
-    if(name) addProject(name, color);
-  });
+        function makeDraggable() {
+          $(".card").draggable({
+            revert: "invalid",
+            helper: "clone",
+            cursorAt: { top: 20, left: 20 }, // ✅ keeps the helper near cursor
+            start: function (e, ui) {
+              $(this).css("opacity", 0.3);
+              ui.helper.css({
+                transform: "scale(1.1)", // ✅ enlarge preview
+                zIndex: 9999,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+              });
+            },
+            stop: function (e, ui) {
+              $(this).css("opacity", 1);
+            },
+          });
 
-  // Add story/bug
-  $('#addStoryBtn').click(() => {
-    const title = $('#storyTitle').val().trim();
-    const type = $('#storyType').val();
-    const projectIdx = $('#projectSelect').val();
-    if(title && projectIdx !== null) {
-      addTask(title, type, projectIdx);
-      $('#storyTitle').val('');
-    }
-  });
+          $("#backlogTable tbody tr")
+            .not(".placeholder")
+            .draggable({
+              revert: "invalid",
+              helper: function () {
+                const id = $(this).data("id");
+                const task = tasks.find((t) => t.id == id);
+                const project = projects[task.project] || { name: "Unknown", color: "#6c757d" };
+                return $(`
+          <div class="card" style="background-color:${project.color}">
+            <div class="project-pill">${project.name}</div>
+            <div class="title">${task.title}</div>
+          </div>
+        `);
+              },
+              cursorAt: { top: 20, left: 20 }, // ✅ same behavior for table rows
+              start: function (e, ui) {
+                $(this).css("opacity", 0.3);
+                ui.helper.css({
+                  transform: "scale(1.1)",
+                  zIndex: 9999,
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                });
+              },
+              stop: function (e, ui) {
+                $(this).css("opacity", 1);
+              },
+            });
 
-  // Close completed tasks
-  $(document).on('click', '.close-btn', function() {
-    const id = $(this).closest('.card').data('id');
-    const task = tasks.find(t => t.id == id);
-    if(task) {
-      task.closed = true;
-      saveData();
-      renderTasks();
-    }
-  });
+          $(".droppable").droppable({
+            accept: ".card, #backlogTable tbody tr",
+            over: function () {
+              $(this).closest(".column").addClass("highlight");
+            },
+            out: function () {
+              $(this).closest(".column").removeClass("highlight");
+            },
+            drop: function (event, ui) {
+              const id = ui.draggable.data("id");
+              if (id === "placeholder") return;
+              const task = tasks.find((t) => t.id == id);
+              if (task) {
+                task.stage = $(this).closest(".column").data("stage");
+                saveData();
+                renderTasks();
+              }
+              $(this).closest(".column").removeClass("highlight");
+            },
+          });
+        }
 
-  // Move from backlog to column
-  $(document).on('click', '.move-btn', function() {
-    const id = $(this).closest('tr').data('id');
-    const task = tasks.find(t => t.id == id);
-    if(task) {
-      task.stage = 'todo';
-      saveData();
-      renderTasks();
-    }
-  });
-});
-</script>
+        function makeBacklogDroppable() {
+          $("#backlogTable tbody").droppable({
+            accept: ".card",
+            over: function () {
+              $(this).addClass("highlight");
+            },
+            out: function () {
+              $(this).removeClass("highlight");
+            },
+            drop: function (event, ui) {
+              const id = ui.draggable.data("id");
+              if (id === "placeholder") return;
+              const task = tasks.find((t) => t.id == id);
+              if (task) {
+                task.stage = "backlog";
+                saveData();
+                renderTasks();
+              }
+              $(this).removeClass("highlight");
+            },
+          });
+        }
 
-</body>
+        // Initial render
+        renderProjects();
+        renderTasks();
+
+        $("#addProjectBtn").click(() => {
+          const name = prompt("Project Name:");
+          const color = prompt("Project Color (hex code or bootstrap color):", "#" + Math.floor(Math.random() * 16777215).toString(16));
+          if (name) addProject(name, color);
+        });
+
+        $("#addStoryBtn").click(() => {
+          const title = $("#storyTitle").val().trim();
+          const type = $("#storyType").val();
+          const projectIdx = $("#projectSelect").val();
+          if (title && projectIdx !== null) {
+            addTask(title, type, projectIdx);
+            $("#storyTitle").val("");
+          }
+        });
+
+        $(document).on("click", ".close-btn", function () {
+          const id = $(this).closest(".card").data("id");
+          const task = tasks.find((t) => t.id == id);
+          if (task) {
+            task.closed = true;
+            saveData();
+            renderTasks();
+          }
+        });
+
+        $(document).on("click", ".move-btn", function () {
+          const id = $(this).closest("tr").data("id");
+          const task = tasks.find((t) => t.id == id);
+          if (task) {
+            task.stage = "todo";
+            saveData();
+            renderTasks();
+          }
+        });
+      });
+    </script>
+  </body>
 </html>
