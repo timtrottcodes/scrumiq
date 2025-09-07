@@ -3,13 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ScrumIQ - Scrum Board</title>
+    <title>ScrumIQ - Scrum Board (sortable)</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" rel="stylesheet" />
+
     <style>
       body {
         padding: 20px;
       }
+
       .board {
         display: flex;
         gap: 15px;
@@ -24,12 +27,13 @@
         min-height: 300px;
         display: flex;
         flex-direction: column;
-        transition: background 0.2s;
+        transition: background 0.18s;
       }
       .column h5 {
         text-align: center;
         margin-bottom: 10px;
       }
+
       .card {
         margin-bottom: 10px;
         cursor: grab;
@@ -39,27 +43,53 @@
         position: relative;
         display: flex;
         flex-direction: column;
-        animation: fadeIn 0.3s ease;
+        animation: fadeIn 0.18s ease;
+        box-sizing: border-box;
       }
-      .card .project-pill {
-        align-self: flex-end;
+      .card-helper {
+        background-clip: padding-box !important; /* prevent table row bg bleed */
+        display: flex !important;
+        flex-direction: column;
+        width: 180px; /* uniform width */
+        color: #fff !important;
+      }
+      .card-helper .project-pill {
         font-size: 0.7rem;
         background: rgba(255, 255, 255, 0.2);
-        padding: 2px 6px;
         border-radius: 12px;
+        padding: 2px 6px;
+        align-self: flex-end;
         margin-bottom: 4px;
       }
-      .card .title {
+      .card-helper .title {
         font-size: 0.9rem;
         font-weight: 500;
         word-break: break-word;
+        background: transparent;
       }
 
-      .close-btn {
-        float: right;
-        cursor: pointer;
-        font-weight: bold;
+      .project-pill {
+        align-self: flex-end;
+        font-size: 0.7rem;
+        background: rgba(255, 255, 255, 0.18);
+        padding: 2px 6px;
+        border-radius: 12px;
+        margin-bottom: 6px;
       }
+      .title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        word-break: break-word;
+      }
+      .close-btn {
+        position: absolute;
+        right: 8px;
+        top: 6px;
+        cursor: pointer;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.95);
+      }
+
       #backlogTable th,
       #backlogTable td {
         vertical-align: middle;
@@ -68,6 +98,29 @@
         flex: 1;
         min-height: 50px;
       }
+
+      /* placeholders / ghost */
+      .ghost-placeholder {
+        background: rgba(0, 123, 255, 0.12);
+        border: 2px dashed rgba(0, 123, 255, 0.6);
+        border-radius: 6px;
+        height: 56px;
+        margin-bottom: 10px;
+        transition: all 0.14s ease;
+        box-sizing: border-box;
+      }
+      .ghost-placeholder.table-row td {
+        padding: 14px;
+        text-align: center;
+        font-style: italic;
+        color: #2b6fb3;
+        background: rgba(0, 123, 255, 0.06);
+      }
+
+      tbody .ghost-placeholder {
+        display: table-row;
+      }
+
       .placeholder {
         text-align: center;
         color: #6c757d;
@@ -78,13 +131,24 @@
       tr.placeholder {
         display: table-row;
       }
+
       .highlight {
-        background-color: #cce5ff !important;
+        background-color: rgba(12, 84, 175, 0.04) !important;
       }
+
+      /* helper appearance */
+      .ui-sortable-helper.card-helper {
+        transform: scale(1.04);
+        z-index: 9999;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+        width: auto !important;
+        min-width: 180px;
+      }
+
       @keyframes fadeIn {
         from {
           opacity: 0;
-          transform: translateY(-5px);
+          transform: translateY(-6px);
         }
         to {
           opacity: 1;
@@ -93,28 +157,26 @@
       }
     </style>
   </head>
+
   <body>
     <div class="container">
       <h2 class="mb-4">ScrumIQ</h2>
 
-      <!-- Project Selector -->
       <div class="mb-3">
         <label for="projectSelect" class="form-label">Select Project:</label>
         <select id="projectSelect" class="form-select"></select>
-        <button class="btn btn-primary mt-2" id="addProjectBtn">Add Project</button>
+        <button id="addProjectBtn" class="btn btn-primary mt-2">Add Project</button>
       </div>
 
-      <!-- Add Story/Bug -->
       <div class="mb-3">
-        <input type="text" id="storyTitle" class="form-control mb-2" placeholder="Story / Bug title" />
+        <input id="storyTitle" class="form-control mb-2" placeholder="Story / Bug title" />
         <select id="storyType" class="form-select mb-2">
-          <option value="Story">Story</option>
-          <option value="Bug">Bug</option>
+          <option>Story</option>
+          <option>Bug</option>
         </select>
-        <button class="btn btn-success" id="addStoryBtn">Add to Backlog</button>
+        <button id="addStoryBtn" class="btn btn-success">Add to Backlog</button>
       </div>
 
-      <!-- Scrum Board Columns -->
       <div class="board">
         <div class="column" data-stage="todo">
           <h5>To Do</h5>
@@ -134,7 +196,6 @@
         </div>
       </div>
 
-      <!-- Backlog Table -->
       <h5>Backlog</h5>
       <table class="table table-striped" id="backlogTable">
         <thead>
@@ -151,10 +212,9 @@
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
       $(function () {
-        const stages = ["backlog", "todo", "inprogress", "qa", "done"];
+        // model
         let projects = JSON.parse(localStorage.getItem("projects") || "[]");
         let tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
 
@@ -162,206 +222,295 @@
           localStorage.setItem("projects", JSON.stringify(projects));
           localStorage.setItem("tasks", JSON.stringify(tasks));
         }
+        function escapeHtml(s) {
+          return String(s || "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+        }
 
+        // render helpers
+        function createCard(task) {
+          const project = projects[task.project] || { name: "Unknown", color: "#6c757d" };
+          // hidden initially so we can fadeIn after insertion
+          return $(`
+          <div class="card" data-id="${task.id}" style="background:${escapeHtml(project.color)}; display:none;">
+            <div class="project-pill">${escapeHtml(project.name)}</div>
+            <div class="title">${escapeHtml(task.title)}</div>
+            ${task.stage === "done" ? '<span class="close-btn">&times;</span>' : ""}
+          </div>
+        `);
+        }
+
+        function createRow(task) {
+          const project = projects[task.project] || { name: "Unknown", color: "#6c757d" };
+          return $(`
+          <tr data-id="${task.id}" style="display:none;">
+            <td>${escapeHtml(task.title)}</td>
+            <td>${escapeHtml(task.type)}</td>
+            <td>${escapeHtml(project.name)}</td>
+            <td><span class="btn btn-sm btn-primary move-btn">Move</span></td>
+          </tr>
+        `);
+        }
+
+        // render all (only called when adding/removing, not on every drop)
         function renderProjects() {
           $("#projectSelect").empty();
-          projects.forEach((p, idx) => {
-            $("#projectSelect").append(`<option value="${idx}">${p.name}</option>`);
-          });
+          projects.forEach((p, i) => $("#projectSelect").append(`<option value="${i}">${escapeHtml(p.name)}</option>`));
         }
 
         function renderTasks() {
           $(".droppable").empty();
-          $("#backlogTable tbody").empty();
+          const $tbody = $("#backlogTable tbody").empty();
 
           let backlogEmpty = true;
-
-          tasks.forEach((task) => {
-            const project = projects[task.project] || { name: "Unknown", color: "#6c757d" };
-            if (task.closed) return;
-
-            if (task.stage === "backlog") {
+          tasks.forEach((t) => {
+            if (t.closed) return;
+            if (t.stage === "backlog") {
               backlogEmpty = false;
-              $("#backlogTable tbody").append(`
-          <tr data-id="${task.id}">
-            <td>${task.title}</td>
-            <td>${task.type}</td>
-            <td>${project.name}</td>
-            <td><span class="btn btn-sm btn-primary move-btn">Move</span></td>
-          </tr>
-        `);
+              $tbody.append(createRow(t));
             } else {
-              const $card = $(`
-          <div class="card" data-id="${task.id}" style="background-color:${project.color}">
-            <div class="project-pill">${project.name}</div>
-            <div class="title">${task.title}</div>
-            ${task.stage === "done" ? '<span class="close-btn">&times;</span>' : ""}
-          </div>
-        `);
-              $(`.column[data-stage="${task.stage}"] .droppable`).append($card.hide().fadeIn(200));
+              $('.column[data-stage="' + t.stage + '"] .droppable').append(createCard(t));
             }
           });
 
-          $("#backlogTable tbody").append(`
-      <tr class="placeholder" data-id="placeholder">
-        <td colspan="4">Drag tasks here to add to backlog</td>
-      </tr>
-    `);
+          $tbody.append(`<tr class="placeholder" data-id="placeholder"><td colspan="4">Drag tasks here to add to backlog</td></tr>`);
 
-          makeDraggable();
-          makeBacklogDroppable();
+          // fade in created items
+          $(".card").fadeIn(140);
+          $("#backlogTable tbody tr").not(".placeholder").fadeIn(140);
+
+          // (re)initialize sortable behaviour
+          makeSortable();
         }
 
-        function addTask(title, type, projectIdx) {
-          tasks.push({
-            id: Date.now(),
-            title,
-            type,
-            project: projectIdx,
-            stage: "backlog",
-            closed: false,
-          });
-          saveData();
-          renderTasks();
-        }
+        // sortable implementation (columns <-> backlog)
+        function makeSortable() {
+          // destroy previous, safe to call
+          if ($(".droppable").hasClass("ui-sortable")) $(".droppable").sortable("destroy");
+          if ($("#backlogTable tbody").hasClass("ui-sortable")) $("#backlogTable tbody").sortable("destroy");
 
-        function addProject(name, color) {
-          projects.push({ name, color });
-          saveData();
-          renderProjects();
-        }
-
-        function makeDraggable() {
-          $(".card").draggable({
-            revert: "invalid",
-            helper: "clone",
-            cursorAt: { top: 20, left: 20 }, // ✅ keeps the helper near cursor
-            start: function (e, ui) {
-              $(this).css("opacity", 0.3);
-              ui.helper.css({
-                transform: "scale(1.1)", // ✅ enlarge preview
-                zIndex: 9999,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-              });
-            },
-            stop: function (e, ui) {
-              $(this).css("opacity", 1);
-            },
-          });
-
-          $("#backlogTable tbody tr")
-            .not(".placeholder")
-            .draggable({
-              revert: "invalid",
-              helper: function () {
-                const id = $(this).data("id");
-                const task = tasks.find((t) => t.id == id);
-                const project = projects[task.project] || { name: "Unknown", color: "#6c757d" };
-                return $(`
-          <div class="card" style="background-color:${project.color}">
-            <div class="project-pill">${project.name}</div>
-            <div class="title">${task.title}</div>
-          </div>
-        `);
-              },
-              cursorAt: { top: 20, left: 20 }, // ✅ same behavior for table rows
+          // -------- columns (div) ----------
+          $(".droppable")
+            .sortable({
+              connectWith: ".droppable, #backlogTable tbody",
+              placeholder: "ghost-placeholder",
+              items: "> .card",
+              tolerance: "pointer",
+              helper: "clone",
+              cursorAt: { top: 20, left: 20 },
               start: function (e, ui) {
-                $(this).css("opacity", 0.3);
-                ui.helper.css({
-                  transform: "scale(1.1)",
-                  zIndex: 9999,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-                });
+                // make helper look like card
+                ui.helper.addClass("card-helper");
+                // set helper width to match original card for consistent appearance
+                ui.helper.css("width", ui.item.outerWidth());
               },
-              stop: function (e, ui) {
-                $(this).css("opacity", 1);
+              update: function (e, ui) {
+                // update called on reorder and on receive too; we set stage based on column
+                const $item = ui.item;
+                if (!$item || !$item.length) return;
+                if ($item.is(".card")) {
+                  const id = $item.data("id");
+                  const task = tasks.find((t) => t.id == id);
+                  if (task) {
+                    const newStage = $item.closest(".column").data("stage");
+                    if (task.stage !== newStage) {
+                      task.stage = newStage;
+                      saveData();
+                    }
+                  }
+                }
+                // keep placeholder/visuals tidy
+                $(this).closest(".column").removeClass("highlight");
               },
-            });
+              receive: function (e, ui) {
+                // something arrived from another list (could be a <tr> from backlog)
+                const $incoming = ui.item;
+                const newStage = $(this).closest(".column").data("stage");
 
-          $(".droppable").droppable({
-            accept: ".card, #backlogTable tbody tr",
-            over: function () {
-              $(this).closest(".column").addClass("highlight");
-            },
-            out: function () {
-              $(this).closest(".column").removeClass("highlight");
-            },
-            drop: function (event, ui) {
-              const id = ui.draggable.data("id");
-              if (id === "placeholder") return;
-              const task = tasks.find((t) => t.id == id);
-              if (task) {
-                task.stage = $(this).closest(".column").data("stage");
-                saveData();
-                renderTasks();
-              }
-              $(this).closest(".column").removeClass("highlight");
-            },
-          });
+                if ($incoming.is("tr")) {
+                  // convert row -> card
+                  const id = $incoming.data("id");
+                  const task = tasks.find((t) => t.id == id);
+                  if (!task) return;
+                  // create card element hidden, replace tr with card
+                  const $card = createCard(task).hide();
+                  $incoming.replaceWith($card);
+                  $card.fadeIn(140);
+                  // set model
+                  task.stage = newStage;
+                  saveData();
+
+                  // if backlog now empty, ensure placeholder exists
+                  const $rows = $("#backlogTable tbody tr").not(".placeholder");
+                  if ($rows.length === 0) {
+                    $("#backlogTable tbody").append(`<tr class="placeholder" data-id="placeholder"><td colspan="4">Drag tasks here to add to backlog</td></tr>`);
+                  }
+
+                  // refresh sortables now that DOM changed
+                  $(".droppable").sortable("refresh");
+                  $("#backlogTable tbody").sortable("refresh");
+                } else if ($incoming.is(".card")) {
+                  // card moved from another column or same column: update model stage
+                  const id = $incoming.data("id");
+                  const task = tasks.find((t) => t.id == id);
+                  if (!task) return;
+                  task.stage = newStage;
+                  saveData();
+                  // ensure nice animation
+                  $incoming.hide().fadeIn(120);
+                }
+              },
+            })
+            .disableSelection();
+
+          // -------- backlog tbody ----------
+          $("#backlogTable tbody")
+            .sortable({
+              connectWith: ".droppable",
+              placeholder: "ghost-placeholder table-row",
+              items: "> tr:not(.placeholder)",
+              tolerance: "pointer",
+              cursorAt: { top: 20, left: 20 },
+              helper: function (e, tr) {
+                // draw a card-like helper when dragging a backlog row
+                const id = $(tr).data("id");
+                const task = tasks.find((t) => t.id == id) || {};
+                const project = projects[task.project] || { name: "Unknown", color: "#6c757d" };
+                const $helper = $(`<div class="card card-helper" style="background:${escapeHtml(project.color)};">
+                                <div class="project-pill">${escapeHtml(project.name)}</div>
+                                <div class="title">${escapeHtml(task.title || "")}</div>
+                              </div>`);
+                // set width so it looks like a card, not full-table
+                $helper.css("min-width", "180px");
+                return $helper;
+              },
+              start: function (e, ui) {
+                // ui.helper is the helper returned above; keep styling consistent
+                ui.helper.css("width", Math.max(180, ui.helper.width()));
+              },
+              receive: function (e, ui) {
+                // something arrived into backlog (probably a .card)
+                const $incoming = ui.item;
+                if ($incoming.is(".card")) {
+                  $(".backlog-placeholder").remove();
+                  const id = $incoming.data("id");
+                  const task = tasks.find((t) => t.id == id);
+                  if (!task) return;
+                  // create a new row and replace the incoming card
+                  const $row = createRow(task).hide();
+                  $incoming.replaceWith($row);
+                  $row.fadeIn(120);
+                  // update model
+                  task.stage = "backlog";
+                  saveData();
+
+                  // remove any placeholder row if we now have real rows
+                  $("#backlogTable tbody tr.placeholder").remove();
+
+                  // refresh sortables
+                  $(".droppable").sortable("refresh");
+                  $("#backlogTable tbody").sortable("refresh");
+                }
+              },
+              update: function (e, ui) {
+                // reorder inside backlog -> ensure stage saved as backlog
+                const $item = ui.item;
+                if ($item.is("tr")) {
+                  const id = $item.data("id");
+                  const task = tasks.find((t) => t.id == id);
+                  if (task && task.stage !== "backlog") {
+                    task.stage = "backlog";
+                    saveData();
+                  }
+                }
+                $(this).removeClass("highlight");
+              },
+            })
+            .disableSelection();
         }
 
-        function makeBacklogDroppable() {
-          $("#backlogTable tbody").droppable({
-            accept: ".card",
-            over: function () {
-              $(this).addClass("highlight");
-            },
-            out: function () {
-              $(this).removeClass("highlight");
-            },
-            drop: function (event, ui) {
-              const id = ui.draggable.data("id");
-              if (id === "placeholder") return;
-              const task = tasks.find((t) => t.id == id);
-              if (task) {
-                task.stage = "backlog";
-                saveData();
-                renderTasks();
-              }
-              $(this).removeClass("highlight");
-            },
-          });
+        // initial data/seed
+        if (!projects.length) {
+          projects.push({ name: "Default", color: "#6c757d" });
+          saveData();
         }
+        // sample seed if you want (commented out)
+        // if (!tasks.length) { tasks.push({ id:Date.now()+1, title:'Sample Story', type:'Story', project:0, stage:'backlog', closed:false }); saveData(); }
 
-        // Initial render
+        // initial render
         renderProjects();
         renderTasks();
 
-        $("#addProjectBtn").click(() => {
-          const name = prompt("Project Name:");
-          const color = prompt("Project Color (hex code or bootstrap color):", "#" + Math.floor(Math.random() * 16777215).toString(16));
-          if (name) addProject(name, color);
+        // UI handlers
+        $("#addProjectBtn").on("click", () => {
+          const name = prompt("Project Name:") || "Project " + (projects.length + 1);
+          const color = prompt("Project color (hex or css):", "#" + Math.floor(Math.random() * 16777215).toString(16));
+          projects.push({ name, color });
+          saveData();
+          renderProjects();
         });
 
-        $("#addStoryBtn").click(() => {
+        $("#addStoryBtn").on("click", () => {
           const title = $("#storyTitle").val().trim();
+          if (!title) return alert("Please enter a title.");
           const type = $("#storyType").val();
-          const projectIdx = $("#projectSelect").val();
-          if (title && projectIdx !== null) {
-            addTask(title, type, projectIdx);
-            $("#storyTitle").val("");
-          }
+          const projectIdx = Number($("#projectSelect").val() || 0);
+          const id = Date.now();
+          tasks.push({ id, title, type, project: projectIdx, stage: "backlog", closed: false });
+          saveData();
+          // append row directly and refresh sortables instead of full render
+          const $row = createRow(tasks.find((t) => t.id == id));
+          $("#backlogTable tbody tr.placeholder").remove();
+          $("#backlogTable tbody").append($row);
+          $row.fadeIn(140);
+          $("#storyTitle").val("");
+          // refresh sortables
+          makeSortable();
         });
 
+        // delegated close button
         $(document).on("click", ".close-btn", function () {
           const id = $(this).closest(".card").data("id");
           const task = tasks.find((t) => t.id == id);
-          if (task) {
-            task.closed = true;
-            saveData();
-            renderTasks();
-          }
+          if (!task) return;
+          task.closed = true;
+          saveData();
+          // remove from DOM
+          $(this)
+            .closest(".card")
+            .fadeOut(140, function () {
+              $(this).remove();
+            });
         });
 
+        // delegated move button in backlog -> quick move to todo
         $(document).on("click", ".move-btn", function () {
-          const id = $(this).closest("tr").data("id");
+          const $row = $(this).closest("tr");
+          const id = $row.data("id");
           const task = tasks.find((t) => t.id == id);
-          if (task) {
-            task.stage = "todo";
-            saveData();
-            renderTasks();
+          if (!task) return;
+          task.stage = "todo";
+          saveData();
+          // convert row -> card and append to todo column
+          const $card = createCard(task).hide();
+          $row.replaceWith($card);
+          $card.fadeIn(140);
+          // remove placeholder if backlog empty
+          if ($("#backlogTable tbody tr:not(.placeholder)").length === 0) {
+            $("#backlogTable tbody").append(`<tr class="placeholder" data-id="placeholder"><td colspan="4">Drag tasks here to add to backlog</td></tr>`);
           }
+          makeSortable();
         });
+
+        // keep UI responsive when window resizes (refresh sortables)
+        $(window).on("resize", () => {
+          try {
+            $(".droppable").sortable("refresh");
+            $("#backlogTable tbody").sortable("refresh");
+          } catch (e) {}
+        });
+
+        // expose a save shortcut for debugging (optional)
+        window.ScrumIQ_save = saveData;
       });
     </script>
   </body>
