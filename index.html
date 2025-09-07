@@ -21,7 +21,7 @@
       }
       .column {
         flex: 1;
-        background: #f8f9fa;
+        background: rgba(0,0,0,0.05);
         padding: 10px;
         border-radius: 5px;
         min-height: 300px;
@@ -131,6 +131,9 @@
       tr.placeholder {
         display: table-row;
       }
+      .column .ghost-placeholder {
+        display: block;
+      }
 
       .highlight {
         background-color: rgba(12, 84, 175, 0.04) !important;
@@ -159,24 +162,22 @@
   </head>
 
   <body>
-    <div class="container">
-      <h2 class="mb-4">ScrumIQ</h2>
-
-      <div class="mb-3">
-        <label for="projectSelect" class="form-label">Select Project:</label>
-        <select id="projectSelect" class="form-select"></select>
-        <button id="addProjectBtn" class="btn btn-primary mt-2">Add Project</button>
+    <!-- App Bar -->
+    <nav class="navbar fixed-top navbar-expand-lg bg-body-tertiary border-bottom">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">ScrumIQ</a>
+        <div class="ms-auto d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-success" id="newTaskBtn">New Story / Bug</button>
+          <button class="btn btn-sm btn-primary" id="editProjectsBtn">Edit Projects</button>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="darkModeToggle" />
+            <label class="form-check-label" for="darkModeToggle">Dark Mode</label>
+          </div>
+        </div>
       </div>
+    </nav>
 
-      <div class="mb-3">
-        <input id="storyTitle" class="form-control mb-2" placeholder="Story / Bug title" />
-        <select id="storyType" class="form-select mb-2">
-          <option>Story</option>
-          <option>Bug</option>
-        </select>
-        <button id="addStoryBtn" class="btn btn-success">Add to Backlog</button>
-      </div>
-
+    <div class="container" style="margin-top: 4em">
       <div class="board">
         <div class="column" data-stage="todo">
           <h5>To Do</h5>
@@ -203,20 +204,96 @@
             <th>Title</th>
             <th>Type</th>
             <th>Project</th>
-            <th>Action</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
     </div>
 
+    <!-- Project Modal -->
+    <div class="modal fade" id="projectModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <form class="modal-content" id="projectForm">
+          <div class="modal-header">
+            <h5 class="modal-title">Edit Projects</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <label for="projectSelectModal" class="form-label">Select Project:</label>
+            <select id="projectSelectModal" class="form-select mb-3"></select>
+
+            <div id="projectFields">
+              <label for="projectNameModal" class="form-label">Project Name:</label>
+              <input type="text" id="projectNameModal" class="form-control mb-3" placeholder="Project Name" />
+
+              <label for="projectColorModal" class="form-label">Project Color:</label>
+              <input type="color" id="projectColorModal" class="form-control form-control-color" value="#6c757d" />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="submit" class="btn btn-primary" id="projectSaveBtn">Save</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div class="modal fade" id="taskModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form id="taskForm">
+            <div class="modal-header">
+              <h5 class="modal-title" id="taskModalTitle">New Task</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <input type="text" class="form-control mb-2" id="taskTitle" placeholder="Title" required />
+              <select class="form-select mb-2" id="taskProject"></select>
+              <select class="form-select mb-2" id="taskType">
+                <option value="Story">Story</option>
+                <option value="Bug">Bug</option>
+              </select>
+              <textarea class="form-control" id="taskDescription" placeholder="Description"></textarea>
+            </div>
+            <div class="modal-footer">
+              <button type="submit" class="btn btn-primary" id="taskSaveBtn">Create</button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
       $(function () {
+        // -----------------------
+        // Dark Mode
+        // -----------------------
+        const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        let darkMode = localStorage.getItem("darkMode");
+        if (darkMode === null) darkMode = systemPrefersDark ? "true" : "false";
+        setDarkMode(darkMode === "true");
+
+        $("#darkModeToggle")
+          .prop("checked", darkMode === "true")
+          .on("change", function () {
+            setDarkMode(this.checked);
+            localStorage.setItem("darkMode", this.checked);
+          });
+
+        function setDarkMode(on) {
+          $("body").attr("data-bs-theme", on ? "dark" : "light");
+        }
+
         // model
         let projects = JSON.parse(localStorage.getItem("projects") || "[]");
         let tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+        let editingProjectIndex = null;
+        let editingTaskId = null;
 
         function saveData() {
           localStorage.setItem("projects", JSON.stringify(projects));
@@ -246,15 +323,15 @@
             <td>${escapeHtml(task.title)}</td>
             <td>${escapeHtml(task.type)}</td>
             <td>${escapeHtml(project.name)}</td>
-            <td><span class="btn btn-sm btn-primary move-btn">Move</span></td>
+            <td></td>
           </tr>
         `);
         }
 
         // render all (only called when adding/removing, not on every drop)
         function renderProjects() {
-          $("#projectSelect").empty();
-          projects.forEach((p, i) => $("#projectSelect").append(`<option value="${i}">${escapeHtml(p.name)}</option>`));
+          $("#taskProject").empty();
+          projects.forEach((p, i) => $("#taskProject").append(`<option value="${i}">${escapeHtml(p.name)}</option>`));
         }
 
         function renderTasks() {
@@ -272,7 +349,9 @@
             }
           });
 
-          $tbody.append(`<tr class="placeholder" data-id="placeholder"><td colspan="4">Drag tasks here to add to backlog</td></tr>`);
+          if(backlogEmpty) {
+            $tbody.append(`<tr class="placeholder" data-id="placeholder"><td colspan="4">Drag tasks here to add to backlog</td></tr>`);
+          }
 
           // fade in created items
           $(".card").fadeIn(140);
@@ -482,25 +561,6 @@
             });
         });
 
-        // delegated move button in backlog -> quick move to todo
-        $(document).on("click", ".move-btn", function () {
-          const $row = $(this).closest("tr");
-          const id = $row.data("id");
-          const task = tasks.find((t) => t.id == id);
-          if (!task) return;
-          task.stage = "todo";
-          saveData();
-          // convert row -> card and append to todo column
-          const $card = createCard(task).hide();
-          $row.replaceWith($card);
-          $card.fadeIn(140);
-          // remove placeholder if backlog empty
-          if ($("#backlogTable tbody tr:not(.placeholder)").length === 0) {
-            $("#backlogTable tbody").append(`<tr class="placeholder" data-id="placeholder"><td colspan="4">Drag tasks here to add to backlog</td></tr>`);
-          }
-          makeSortable();
-        });
-
         // keep UI responsive when window resizes (refresh sortables)
         $(window).on("resize", () => {
           try {
@@ -511,6 +571,120 @@
 
         // expose a save shortcut for debugging (optional)
         window.ScrumIQ_save = saveData;
+
+        // -----------------------
+        // Project Modal
+        // -----------------------
+        const projectModal = new bootstrap.Modal($("#projectModal"));
+
+        function populateProjectModal() {
+          const $select = $("#projectSelectModal").empty();
+          $select.append(`<option value="new">New Project</option>`);
+          projects.forEach((p, idx) => {
+            $select.append(`<option value="${idx}">${escapeHtml(p.name)}</option>`);
+          });
+
+          // default to New Project
+          $select.val("new");
+          $("#projectFields").show();
+          $("#projectNameModal").val("");
+          $("#projectColorModal").val("#6c757d");
+        }
+
+        $("#editProjectsBtn").on("click", () => {
+          populateProjectModal();
+          editingProjectIndex = null;
+          $("#projectSaveBtn").text("Save");
+          projectModal.show();
+        });
+
+        $("#projectSelectModal").on("change", function () {
+          const val = $(this).val();
+          if (val === "new") {
+            editingProjectIndex = null;
+            $("#projectNameModal").val("");
+            $("#projectColorModal").val("#6c757d");
+          } else {
+            editingProjectIndex = Number(val);
+            const proj = projects[editingProjectIndex];
+            $("#projectNameModal").val(proj.name);
+            $("#projectColorModal").val(proj.color);
+          }
+        });
+
+        $("#projectForm").on("submit", function (e) {
+          e.preventDefault();
+          const name = $("#projectNameModal").val().trim();
+          const color = $("#projectColorModal").val();
+
+          if (!name) return alert("Project name is required.");
+
+          if (editingProjectIndex === null) {
+            // new project
+            projects.push({ name, color });
+          } else {
+            // edit existing project
+            projects[editingProjectIndex].name = name;
+            projects[editingProjectIndex].color = color;
+          }
+          saveData();
+          renderProjects();
+          renderTasks();
+          projectModal.hide();
+        });
+
+        // -----------------------
+        // Task Modal
+        // -----------------------
+        const taskModal = new bootstrap.Modal($("#taskModal"));
+        $("#newTaskBtn").on("click", () => {
+          editingTaskId = null;
+          $("#taskModalTitle").text("New Task");
+          $("#taskSaveBtn").text("Create");
+          $("#taskTitle").val("");
+          $("#taskProject").val(0);
+          $("#taskType").val("Story");
+          $("#taskDescription").val("");
+          taskModal.show();
+        });
+
+        $(document).on("click", ".card", function () {
+          const id = $(this).data("id");
+          const task = tasks.find((t) => t.id == id);
+          if (!task) return;
+          editingTaskId = task.id;
+          $("#taskModalTitle").text("Edit Task");
+          $("#taskSaveBtn").text("Update");
+          $("#taskTitle").val(task.title);
+          $("#taskProject").val(task.project);
+          $("#taskType").val(task.type);
+          $("#taskDescription").val(task.description || "");
+          taskModal.show();
+        });
+
+        $("#taskForm").on("submit", function (e) {
+          e.preventDefault();
+          const title = $("#taskTitle").val().trim();
+          const projectIdx = Number($("#taskProject").val());
+          const type = $("#taskType").val();
+          const description = $("#taskDescription").val().trim();
+          if (!title) return alert("Enter a title");
+
+          if (editingTaskId === null) {
+            const id = Date.now();
+            tasks.push({ id, title, project: projectIdx, type, description, stage: "backlog", closed: false });
+          } else {
+            const task = tasks.find((t) => t.id == editingTaskId);
+            if (!task) return;
+            task.title = title;
+            task.project = projectIdx;
+            task.type = type;
+            task.description = description;
+          }
+          saveData();
+          renderTasks();
+          taskModal.hide();
+        });
       });
     </script>
   </body>
