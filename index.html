@@ -1,691 +1,162 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ScrumIQ - Scrum Board (sortable)</title>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>ScrumIQ - Enhanced</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" rel="stylesheet"/>
+  <link href="css/styles.css" rel="stylesheet"/>
+</head>
+<body>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" rel="stylesheet" />
+<!-- App Bar -->
+<nav class="navbar fixed-top navbar-expand-lg bg-body-tertiary border-bottom">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="#">ScrumIQ</a>
 
-    <style>
-      body {
-        padding: 20px;
-      }
-
-      .board {
-        display: flex;
-        gap: 15px;
-        overflow-x: auto;
-        margin-bottom: 30px;
-      }
-      .column {
-        flex: 1;
-        background: rgba(0,0,0,0.05);
-        padding: 10px;
-        border-radius: 5px;
-        min-height: 300px;
-        display: flex;
-        flex-direction: column;
-        transition: background 0.18s;
-      }
-      .column h5 {
-        text-align: center;
-        margin-bottom: 10px;
-      }
-
-      .card {
-        margin-bottom: 10px;
-        cursor: grab;
-        padding: 8px 10px;
-        border-radius: 6px;
-        color: #fff;
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        animation: fadeIn 0.18s ease;
-        box-sizing: border-box;
-      }
-      .card-helper {
-        background-clip: padding-box !important; /* prevent table row bg bleed */
-        display: flex !important;
-        flex-direction: column;
-        width: 180px; /* uniform width */
-        color: #fff !important;
-      }
-      .card-helper .project-pill {
-        font-size: 0.7rem;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
-        padding: 2px 6px;
-        align-self: flex-end;
-        margin-bottom: 4px;
-      }
-      .card-helper .title {
-        font-size: 0.9rem;
-        font-weight: 500;
-        word-break: break-word;
-        background: transparent;
-      }
-
-      .project-pill {
-        align-self: flex-end;
-        font-size: 0.7rem;
-        background: rgba(255, 255, 255, 0.18);
-        padding: 2px 6px;
-        border-radius: 12px;
-        margin-bottom: 6px;
-      }
-      .title {
-        font-size: 0.95rem;
-        font-weight: 600;
-        word-break: break-word;
-      }
-      .close-btn {
-        position: absolute;
-        right: 8px;
-        top: 6px;
-        cursor: pointer;
-        font-weight: 700;
-        color: rgba(255, 255, 255, 0.95);
-      }
-
-      #backlogTable th,
-      #backlogTable td {
-        vertical-align: middle;
-      }
-      .droppable {
-        flex: 1;
-        min-height: 50px;
-      }
-
-      /* placeholders / ghost */
-      .ghost-placeholder {
-        background: rgba(0, 123, 255, 0.12);
-        border: 2px dashed rgba(0, 123, 255, 0.6);
-        border-radius: 6px;
-        height: 56px;
-        margin-bottom: 10px;
-        transition: all 0.14s ease;
-        box-sizing: border-box;
-      }
-      .ghost-placeholder.table-row td {
-        padding: 14px;
-        text-align: center;
-        font-style: italic;
-        color: #2b6fb3;
-        background: rgba(0, 123, 255, 0.06);
-      }
-
-      tbody .ghost-placeholder {
-        display: table-row;
-      }
-
-      .placeholder {
-        text-align: center;
-        color: #6c757d;
-        font-style: italic;
-        height: 50px;
-        transition: background 0.2s;
-      }
-      tr.placeholder {
-        display: table-row;
-      }
-      .column .ghost-placeholder {
-        display: block;
-      }
-
-      .highlight {
-        background-color: rgba(12, 84, 175, 0.04) !important;
-      }
-
-      /* helper appearance */
-      .ui-sortable-helper.card-helper {
-        transform: scale(1.04);
-        z-index: 9999;
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
-        width: auto !important;
-        min-width: 180px;
-      }
-
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(-6px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-    </style>
-  </head>
-
-  <body>
-    <!-- App Bar -->
-    <nav class="navbar fixed-top navbar-expand-lg bg-body-tertiary border-bottom">
-      <div class="container-fluid">
-        <a class="navbar-brand" href="#">ScrumIQ</a>
-        <div class="ms-auto d-flex align-items-center gap-2">
-          <button class="btn btn-sm btn-success" id="newTaskBtn">New Story / Bug</button>
-          <button class="btn btn-sm btn-primary" id="editProjectsBtn">Edit Projects</button>
-          <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="darkModeToggle" />
-            <label class="form-check-label" for="darkModeToggle">Dark Mode</label>
-          </div>
-        </div>
-      </div>
-    </nav>
-
-    <div class="container" style="margin-top: 4em">
-      <div class="board">
-        <div class="column" data-stage="todo">
-          <h5>To Do</h5>
-          <div class="droppable"></div>
-        </div>
-        <div class="column" data-stage="inprogress">
-          <h5>In Progress</h5>
-          <div class="droppable"></div>
-        </div>
-        <div class="column" data-stage="qa">
-          <h5>QA</h5>
-          <div class="droppable"></div>
-        </div>
-        <div class="column" data-stage="done">
-          <h5>Done</h5>
-          <div class="droppable"></div>
-        </div>
-      </div>
-
-      <h5>Backlog</h5>
-      <table class="table table-striped" id="backlogTable">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Type</th>
-            <th>Project</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <!-- Project Modal -->
-    <div class="modal fade" id="projectModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog">
-        <form class="modal-content" id="projectForm">
-          <div class="modal-header">
-            <h5 class="modal-title">Edit Projects</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            <label for="projectSelectModal" class="form-label">Select Project:</label>
-            <select id="projectSelectModal" class="form-select mb-3"></select>
-
-            <div id="projectFields">
-              <label for="projectNameModal" class="form-label">Project Name:</label>
-              <input type="text" id="projectNameModal" class="form-control mb-3" placeholder="Project Name" />
-
-              <label for="projectColorModal" class="form-label">Project Color:</label>
-              <input type="color" id="projectColorModal" class="form-control form-control-color" value="#6c757d" />
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="submit" class="btn btn-primary" id="projectSaveBtn">Save</button>
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          </div>
-        </form>
+    <div class="ms-auto d-flex align-items-center appbar-btns">
+      <input id="searchInput" class="form-control form-control-sm appbar-search" placeholder="Search tasks, tags..." title="Search by title, description, tags">
+      <button class="btn btn-sm btn-success" id="newTaskBtn">New Issue</button>
+      <button class="btn btn-sm btn-primary" id="editProjectsBtn">Edit Projects</button>
+      <button class="btn btn-sm btn-secondary" id="settingsBtn">Settings</button>
+      <div class="form-check form-switch ms-2">
+        <input class="form-check-input" type="checkbox" id="darkModeToggle"/>
+        <label class="form-check-label" for="darkModeToggle">Dark</label>
       </div>
     </div>
+  </div>
+</nav>
 
-    <!-- Task Modal -->
-    <div class="modal fade" id="taskModal" tabindex="-1">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <form id="taskForm">
-            <div class="modal-header">
-              <h5 class="modal-title" id="taskModalTitle">New Task</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-              <input type="text" class="form-control mb-2" id="taskTitle" placeholder="Title" required />
-              <select class="form-select mb-2" id="taskProject"></select>
-              <select class="form-select mb-2" id="taskType">
-                <option value="Story">Story</option>
-                <option value="Bug">Bug</option>
-              </select>
-              <textarea class="form-control" id="taskDescription" placeholder="Description"></textarea>
-            </div>
-            <div class="modal-footer">
-              <button type="submit" class="btn btn-primary" id="taskSaveBtn">Create</button>
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            </div>
-          </form>
+<div class="container" style="margin-top:4em">
+  <div class="board">
+    <div class="column" data-stage="todo"><h5>To Do</h5><div class="droppable"></div></div>
+    <div class="column" data-stage="inprogress"><h5>In Progress</h5><div class="droppable"></div></div>
+    <div class="column" data-stage="qa"><h5>QA</h5><div class="droppable"></div></div>
+    <div class="column" data-stage="done"><h5>Done</h5><div class="droppable"></div></div>
+  </div>
+
+  <h5>Backlog</h5>
+  <table class="table table-striped" id="backlogTable">
+    <thead><tr><th>Title</th><th>Type</th><th>Project</th><th>Due</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<!-- Project modal (select + edit / new) -->
+<div class="modal fade" id="projectModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="projectForm">
+      <div class="modal-header"><h5 class="modal-title">Edit Projects</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <label for="projectSelectModal" class="form-label">Select Project</label>
+        <select id="projectSelectModal" class="form-select mb-3"></select>
+        <div id="projectFields">
+          <label class="form-label">Project Name</label>
+          <input id="projectNameModal" class="form-control mb-2" required>
+          <label class="form-label">Color</label>
+          <input id="projectColorModal" type="color" class="form-control form-control-color" value="#6c757d">
         </div>
       </div>
-    </div>
+      <div class="modal-footer"><button class="btn btn-primary" type="submit" id="projectSaveBtn">Save</button><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button></div>
+    </form>
+  </div>
+</div>
 
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-      $(function () {
-        // -----------------------
-        // Dark Mode
-        // -----------------------
-        const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        let darkMode = localStorage.getItem("darkMode");
-        if (darkMode === null) darkMode = systemPrefersDark ? "true" : "false";
-        setDarkMode(darkMode === "true");
-
-        $("#darkModeToggle")
-          .prop("checked", darkMode === "true")
-          .on("change", function () {
-            setDarkMode(this.checked);
-            localStorage.setItem("darkMode", this.checked);
-          });
-
-        function setDarkMode(on) {
-          $("body").attr("data-bs-theme", on ? "dark" : "light");
-        }
-
-        // model
-        let projects = JSON.parse(localStorage.getItem("projects") || "[]");
-        let tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
-        let editingProjectIndex = null;
-        let editingTaskId = null;
-
-        function saveData() {
-          localStorage.setItem("projects", JSON.stringify(projects));
-          localStorage.setItem("tasks", JSON.stringify(tasks));
-        }
-        function escapeHtml(s) {
-          return String(s || "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
-        }
-
-        // render helpers
-        function createCard(task) {
-          const project = projects[task.project] || { name: "Unknown", color: "#6c757d" };
-          // hidden initially so we can fadeIn after insertion
-          return $(`
-          <div class="card" data-id="${task.id}" style="background:${escapeHtml(project.color)}; display:none;">
-            <div class="project-pill">${escapeHtml(project.name)}</div>
-            <div class="title">${escapeHtml(task.title)}</div>
-            ${task.stage === "done" ? '<span class="close-btn">&times;</span>' : ""}
+<!-- Task modal (create/edit) -->
+<div class="modal fade" id="taskModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <form class="modal-content" id="taskForm">
+      <div class="modal-header">
+        <h5 class="modal-title" id="taskModalTitle">New Task</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-2">
+          <div class="col-md-8">
+            <label class="form-label">Title</label>
+            <input id="taskTitle" class="form-control" required>
           </div>
-        `);
-        }
+          <div class="col-md-4">
+            <label class="form-label">Project</label>
+            <select id="taskProject" class="form-select"></select>
+          </div>
 
-        function createRow(task) {
-          const project = projects[task.project] || { name: "Unknown", color: "#6c757d" };
-          return $(`
-          <tr data-id="${task.id}" style="display:none;">
-            <td>${escapeHtml(task.title)}</td>
-            <td>${escapeHtml(task.type)}</td>
-            <td>${escapeHtml(project.name)}</td>
-            <td></td>
-          </tr>
-        `);
-        }
+          <div class="col-md-4">
+            <label class="form-label">Type</label>
+            <select id="taskType" class="form-select"><option>Story</option><option>Bug</option></select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Priority</label>
+            <select id="taskPriority" class="form-select"><option>Low</option><option selected>Medium</option><option>High</option></select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Due (date & time)</label>
+            <input id="taskDue" type="datetime-local" class="form-control">
+          </div>
 
-        // render all (only called when adding/removing, not on every drop)
-        function renderProjects() {
-          $("#taskProject").empty();
-          projects.forEach((p, i) => $("#taskProject").append(`<option value="${i}">${escapeHtml(p.name)}</option>`));
-        }
+          <div class="col-12">
+            <label class="form-label">Tags (comma separated)</label>
+            <input id="taskTags" class="form-control" placeholder="ui,backend,urgent">
+          </div>
 
-        function renderTasks() {
-          $(".droppable").empty();
-          const $tbody = $("#backlogTable tbody").empty();
+          <div class="col-12">
+            <label class="form-label">Description</label>
+            <textarea id="taskDescription" class="form-control" rows="3"></textarea>
+          </div>
 
-          let backlogEmpty = true;
-          tasks.forEach((t) => {
-            if (t.closed) return;
-            if (t.stage === "backlog") {
-              backlogEmpty = false;
-              $tbody.append(createRow(t));
-            } else {
-              $('.column[data-stage="' + t.stage + '"] .droppable').append(createCard(t));
-            }
-          });
+          <div class="col-12 mt-2">
+            <label class="form-label">Checklist</label>
+            <div class="input-group mb-2">
+              <input id="newChecklistText" class="form-control" placeholder="Checklist item">
+              <button id="addChecklistItem" class="btn btn-outline-secondary" type="button">Add</button>
+            </div>
+            <div id="checklistContainer"></div>
+          </div>
 
-          if(backlogEmpty) {
-            $tbody.append(`<tr class="placeholder" data-id="placeholder"><td colspan="4">Drag tasks here to add to backlog</td></tr>`);
-          }
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="taskSaveBtn" class="btn btn-primary" type="submit">Create</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
 
-          // fade in created items
-          $(".card").fadeIn(140);
-          $("#backlogTable tbody tr").not(".placeholder").fadeIn(140);
+<!-- Settings modal (Auto-Stage rules, reminder preference) -->
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="settingsForm">
+      <div class="modal-header"><h5 class="modal-title">Settings</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" id="ruleAutoBugToTodo" type="checkbox">
+          <label class="form-check-label" for="ruleAutoBugToTodo">Auto-move new Bugs to To Do</label>
+        </div>
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" id="ruleChecklistToQA" type="checkbox">
+          <label class="form-check-label" for="ruleChecklistToQA">Auto-move to QA when checklist completes</label>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Reminder offset (minutes before due)</label>
+          <input id="reminderOffset" type="number" min="0" step="1" class="form-control" value="10">
+        </div>
+        <div class="mb-2">
+          <button id="exportBtn" class="btn btn-sm btn-outline-secondary">Export JSON</button>
+          <label class="btn btn-sm btn-outline-secondary mb-0">
+            Import JSON <input id="importFile" type="file" accept="application/json" hidden>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-primary" type="submit">Save</button><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button></div>
+    </form>
+  </div>
+</div>
 
-          // (re)initialize sortable behaviour
-          makeSortable();
-        }
-
-        // sortable implementation (columns <-> backlog)
-        function makeSortable() {
-          // destroy previous, safe to call
-          if ($(".droppable").hasClass("ui-sortable")) $(".droppable").sortable("destroy");
-          if ($("#backlogTable tbody").hasClass("ui-sortable")) $("#backlogTable tbody").sortable("destroy");
-
-          // -------- columns (div) ----------
-          $(".droppable")
-            .sortable({
-              connectWith: ".droppable, #backlogTable tbody",
-              placeholder: "ghost-placeholder",
-              items: "> .card",
-              tolerance: "pointer",
-              helper: "clone",
-              cursorAt: { top: 20, left: 20 },
-              start: function (e, ui) {
-                // make helper look like card
-                ui.helper.addClass("card-helper");
-                // set helper width to match original card for consistent appearance
-                ui.helper.css("width", ui.item.outerWidth());
-              },
-              update: function (e, ui) {
-                // update called on reorder and on receive too; we set stage based on column
-                const $item = ui.item;
-                if (!$item || !$item.length) return;
-                if ($item.is(".card")) {
-                  const id = $item.data("id");
-                  const task = tasks.find((t) => t.id == id);
-                  if (task) {
-                    const newStage = $item.closest(".column").data("stage");
-                    if (task.stage !== newStage) {
-                      task.stage = newStage;
-                      saveData();
-                    }
-                  }
-                }
-                // keep placeholder/visuals tidy
-                $(this).closest(".column").removeClass("highlight");
-              },
-              receive: function (e, ui) {
-                // something arrived from another list (could be a <tr> from backlog)
-                const $incoming = ui.item;
-                const newStage = $(this).closest(".column").data("stage");
-
-                if ($incoming.is("tr")) {
-                  // convert row -> card
-                  const id = $incoming.data("id");
-                  const task = tasks.find((t) => t.id == id);
-                  if (!task) return;
-                  // create card element hidden, replace tr with card
-                  const $card = createCard(task).hide();
-                  $incoming.replaceWith($card);
-                  $card.fadeIn(140);
-                  // set model
-                  task.stage = newStage;
-                  saveData();
-
-                  // if backlog now empty, ensure placeholder exists
-                  const $rows = $("#backlogTable tbody tr").not(".placeholder");
-                  if ($rows.length === 0) {
-                    $("#backlogTable tbody").append(`<tr class="placeholder" data-id="placeholder"><td colspan="4">Drag tasks here to add to backlog</td></tr>`);
-                  }
-
-                  // refresh sortables now that DOM changed
-                  $(".droppable").sortable("refresh");
-                  $("#backlogTable tbody").sortable("refresh");
-                } else if ($incoming.is(".card")) {
-                  // card moved from another column or same column: update model stage
-                  const id = $incoming.data("id");
-                  const task = tasks.find((t) => t.id == id);
-                  if (!task) return;
-                  task.stage = newStage;
-                  saveData();
-                  // ensure nice animation
-                  $incoming.hide().fadeIn(120);
-                }
-              },
-            })
-            .disableSelection();
-
-          // -------- backlog tbody ----------
-          $("#backlogTable tbody")
-            .sortable({
-              connectWith: ".droppable",
-              placeholder: "ghost-placeholder table-row",
-              items: "> tr:not(.placeholder)",
-              tolerance: "pointer",
-              cursorAt: { top: 20, left: 20 },
-              helper: function (e, tr) {
-                // draw a card-like helper when dragging a backlog row
-                const id = $(tr).data("id");
-                const task = tasks.find((t) => t.id == id) || {};
-                const project = projects[task.project] || { name: "Unknown", color: "#6c757d" };
-                const $helper = $(`<div class="card card-helper" style="background:${escapeHtml(project.color)};">
-                                <div class="project-pill">${escapeHtml(project.name)}</div>
-                                <div class="title">${escapeHtml(task.title || "")}</div>
-                              </div>`);
-                // set width so it looks like a card, not full-table
-                $helper.css("min-width", "180px");
-                return $helper;
-              },
-              start: function (e, ui) {
-                // ui.helper is the helper returned above; keep styling consistent
-                ui.helper.css("width", Math.max(180, ui.helper.width()));
-              },
-              receive: function (e, ui) {
-                // something arrived into backlog (probably a .card)
-                const $incoming = ui.item;
-                if ($incoming.is(".card")) {
-                  $(".backlog-placeholder").remove();
-                  const id = $incoming.data("id");
-                  const task = tasks.find((t) => t.id == id);
-                  if (!task) return;
-                  // create a new row and replace the incoming card
-                  const $row = createRow(task).hide();
-                  $incoming.replaceWith($row);
-                  $row.fadeIn(120);
-                  // update model
-                  task.stage = "backlog";
-                  saveData();
-
-                  // remove any placeholder row if we now have real rows
-                  $("#backlogTable tbody tr.placeholder").remove();
-
-                  // refresh sortables
-                  $(".droppable").sortable("refresh");
-                  $("#backlogTable tbody").sortable("refresh");
-                }
-              },
-              update: function (e, ui) {
-                // reorder inside backlog -> ensure stage saved as backlog
-                const $item = ui.item;
-                if ($item.is("tr")) {
-                  const id = $item.data("id");
-                  const task = tasks.find((t) => t.id == id);
-                  if (task && task.stage !== "backlog") {
-                    task.stage = "backlog";
-                    saveData();
-                  }
-                }
-                $(this).removeClass("highlight");
-              },
-            })
-            .disableSelection();
-        }
-
-        // initial data/seed
-        if (!projects.length) {
-          projects.push({ name: "Default", color: "#6c757d" });
-          saveData();
-        }
-        // sample seed if you want (commented out)
-        // if (!tasks.length) { tasks.push({ id:Date.now()+1, title:'Sample Story', type:'Story', project:0, stage:'backlog', closed:false }); saveData(); }
-
-        // initial render
-        renderProjects();
-        renderTasks();
-
-        // UI handlers
-        $("#addProjectBtn").on("click", () => {
-          const name = prompt("Project Name:") || "Project " + (projects.length + 1);
-          const color = prompt("Project color (hex or css):", "#" + Math.floor(Math.random() * 16777215).toString(16));
-          projects.push({ name, color });
-          saveData();
-          renderProjects();
-        });
-
-        $("#addStoryBtn").on("click", () => {
-          const title = $("#storyTitle").val().trim();
-          if (!title) return alert("Please enter a title.");
-          const type = $("#storyType").val();
-          const projectIdx = Number($("#projectSelect").val() || 0);
-          const id = Date.now();
-          tasks.push({ id, title, type, project: projectIdx, stage: "backlog", closed: false });
-          saveData();
-          // append row directly and refresh sortables instead of full render
-          const $row = createRow(tasks.find((t) => t.id == id));
-          $("#backlogTable tbody tr.placeholder").remove();
-          $("#backlogTable tbody").append($row);
-          $row.fadeIn(140);
-          $("#storyTitle").val("");
-          // refresh sortables
-          makeSortable();
-        });
-
-        // delegated close button
-        $(document).on("click", ".close-btn", function () {
-          const id = $(this).closest(".card").data("id");
-          const task = tasks.find((t) => t.id == id);
-          if (!task) return;
-          task.closed = true;
-          saveData();
-          // remove from DOM
-          $(this)
-            .closest(".card")
-            .fadeOut(140, function () {
-              $(this).remove();
-            });
-        });
-
-        // keep UI responsive when window resizes (refresh sortables)
-        $(window).on("resize", () => {
-          try {
-            $(".droppable").sortable("refresh");
-            $("#backlogTable tbody").sortable("refresh");
-          } catch (e) {}
-        });
-
-        // expose a save shortcut for debugging (optional)
-        window.ScrumIQ_save = saveData;
-
-        // -----------------------
-        // Project Modal
-        // -----------------------
-        const projectModal = new bootstrap.Modal($("#projectModal"));
-
-        function populateProjectModal() {
-          const $select = $("#projectSelectModal").empty();
-          $select.append(`<option value="new">New Project</option>`);
-          projects.forEach((p, idx) => {
-            $select.append(`<option value="${idx}">${escapeHtml(p.name)}</option>`);
-          });
-
-          // default to New Project
-          $select.val("new");
-          $("#projectFields").show();
-          $("#projectNameModal").val("");
-          $("#projectColorModal").val("#6c757d");
-        }
-
-        $("#editProjectsBtn").on("click", () => {
-          populateProjectModal();
-          editingProjectIndex = null;
-          $("#projectSaveBtn").text("Save");
-          projectModal.show();
-        });
-
-        $("#projectSelectModal").on("change", function () {
-          const val = $(this).val();
-          if (val === "new") {
-            editingProjectIndex = null;
-            $("#projectNameModal").val("");
-            $("#projectColorModal").val("#6c757d");
-          } else {
-            editingProjectIndex = Number(val);
-            const proj = projects[editingProjectIndex];
-            $("#projectNameModal").val(proj.name);
-            $("#projectColorModal").val(proj.color);
-          }
-        });
-
-        $("#projectForm").on("submit", function (e) {
-          e.preventDefault();
-          const name = $("#projectNameModal").val().trim();
-          const color = $("#projectColorModal").val();
-
-          if (!name) return alert("Project name is required.");
-
-          if (editingProjectIndex === null) {
-            // new project
-            projects.push({ name, color });
-          } else {
-            // edit existing project
-            projects[editingProjectIndex].name = name;
-            projects[editingProjectIndex].color = color;
-          }
-          saveData();
-          renderProjects();
-          renderTasks();
-          projectModal.hide();
-        });
-
-        // -----------------------
-        // Task Modal
-        // -----------------------
-        const taskModal = new bootstrap.Modal($("#taskModal"));
-        $("#newTaskBtn").on("click", () => {
-          editingTaskId = null;
-          $("#taskModalTitle").text("New Task");
-          $("#taskSaveBtn").text("Create");
-          $("#taskTitle").val("");
-          $("#taskProject").val(0);
-          $("#taskType").val("Story");
-          $("#taskDescription").val("");
-          taskModal.show();
-        });
-
-        $(document).on("click", ".card", function () {
-          const id = $(this).data("id");
-          const task = tasks.find((t) => t.id == id);
-          if (!task) return;
-          editingTaskId = task.id;
-          $("#taskModalTitle").text("Edit Task");
-          $("#taskSaveBtn").text("Update");
-          $("#taskTitle").val(task.title);
-          $("#taskProject").val(task.project);
-          $("#taskType").val(task.type);
-          $("#taskDescription").val(task.description || "");
-          taskModal.show();
-        });
-
-        $("#taskForm").on("submit", function (e) {
-          e.preventDefault();
-          const title = $("#taskTitle").val().trim();
-          const projectIdx = Number($("#taskProject").val());
-          const type = $("#taskType").val();
-          const description = $("#taskDescription").val().trim();
-          if (!title) return alert("Enter a title");
-
-          if (editingTaskId === null) {
-            const id = Date.now();
-            tasks.push({ id, title, project: projectIdx, type, description, stage: "backlog", closed: false });
-          } else {
-            const task = tasks.find((t) => t.id == editingTaskId);
-            if (!task) return;
-            task.title = title;
-            task.project = projectIdx;
-            task.type = type;
-            task.description = description;
-          }
-          saveData();
-          renderTasks();
-          taskModal.hide();
-        });
-      });
-    </script>
-  </body>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/script.js"></script>
+</body>
 </html>
