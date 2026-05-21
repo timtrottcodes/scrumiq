@@ -2,32 +2,83 @@ $(function () {
   /* ---------------------------
    DATA MODEL & STORAGE
    --------------------------- */
-  let projects = JSON.parse(localStorage.getItem("projects") || "[]");
-  let tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+  // Check localStorage availability
+  function isLocalStorageAvailable() {
+    try {
+      const test = '__localStorage_test__';
+      localStorage.setItem(test, test);
+      localStorage.removeItem(test);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Safe localStorage getter with error handling
+  function safeGetItem(key, defaultValue) {
+    try {
+      if (!isLocalStorageAvailable()) {
+        console.warn('localStorage is not available');
+        return defaultValue;
+      }
+      const item = localStorage.getItem(key);
+      return item !== null ? item : defaultValue;
+    } catch (e) {
+      console.error(`Error reading from localStorage (${key}):`, e);
+      return defaultValue;
+    }
+  }
+
+  // Safe localStorage setter with error handling
+  function safeSetItem(key, value) {
+    try {
+      if (!isLocalStorageAvailable()) {
+        alert('Warning: localStorage is not available. Your data cannot be saved.');
+        return false;
+      }
+      localStorage.setItem(key, value);
+      return true;
+    } catch (e) {
+      if (e.name === 'QuotaExceededError') {
+        alert('Storage quota exceeded! Please export your data and clear some tasks to free up space.');
+      } else {
+        alert('Error saving data: ' + e.message);
+      }
+      console.error(`Error writing to localStorage (${key}):`, e);
+      return false;
+    }
+  }
+
+  let projects = JSON.parse(safeGetItem("projects", "[]"));
+  let tasks = JSON.parse(safeGetItem("tasks", "[]"));
   // user settings for auto rules + reminders
-  let settings = JSON.parse(localStorage.getItem("scrumIQSettings") || "{}");
+  let settings = JSON.parse(safeGetItem("scrumIQSettings", "{}"));
   if (settings.reminderOffset === undefined) settings.reminderOffset = 10;
   if (settings.ruleAutoBugToTodo === undefined) settings.ruleAutoBugToTodo = true;
   if (settings.ruleChecklistToQA === undefined) settings.ruleChecklistToQA = true;
 
+  // Modal state tracking variables
+  let editingProjectIndex = null;
+  let editingTaskId = null;
+
   function saveAll() {
-    localStorage.setItem("projects", JSON.stringify(projects));
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-    localStorage.setItem("scrumIQSettings", JSON.stringify(settings));
+    safeSetItem("projects", JSON.stringify(projects));
+    safeSetItem("tasks", JSON.stringify(tasks));
+    safeSetItem("scrumIQSettings", JSON.stringify(settings));
   }
 
   /* ---------------------------
    DARK MODE
    --------------------------- */
   const systemPrefersDark = window.matchMedia("(prefers-color-scheme:dark)").matches;
-  let storedTheme = localStorage.getItem("scrumIQTheme");
+  let storedTheme = safeGetItem("scrumIQTheme", null);
   const initialDark = storedTheme === null ? systemPrefersDark : storedTheme === "dark";
   if (initialDark) document.body.setAttribute("data-bs-theme", "dark");
   $("#darkModeToggle").prop("checked", initialDark);
   $("#darkModeToggle").on("change", function () {
     const on = this.checked;
     document.body.setAttribute("data-bs-theme", on ? "dark" : "light");
-    localStorage.setItem("scrumIQTheme", on ? "dark" : "light");
+    safeSetItem("scrumIQTheme", on ? "dark" : "light");
   });
 
   /* ---------------------------
@@ -37,7 +88,7 @@ $(function () {
     return String(s || "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
   }
   function findTask(id) {
-    return tasks.find((t) => t.id == id);
+    return tasks.find((t) => t.id === id);
   }
   function findProject(i) {
     return projects[i] || { name: "Unknown", color: "#6c757d" };
@@ -254,35 +305,9 @@ $(function () {
     if (Notification.permission === "default") Notification.requestPermission();
   }
 
-  // schedule reminders for tasks with due date (one-shot per task)
-  const reminderTimers = {};
-  function scheduleReminders() {
-    // clear existing
-    Object.values(reminderTimers).forEach((t) => clearTimeout(t));
-    for (const task of tasks) {
-      if (!task.due) continue;
-      if (task.notified) continue; // we mark after notifying
-      const due = new Date(task.due).getTime();
-      if (isNaN(due)) continue;
-      const offsetMin = Number(settings.reminderOffset || 10);
-      const notifyAt = due - offsetMin * 60 * 1000;
-      const now = Date.now();
-      if (notifyAt <= now) {
-        // due soon/past -> notify immediately if not already done
-        triggerNotification(task);
-        task.notified = true;
-        saveAll();
-      } else {
-        const id = task.id;
-        const ms = notifyAt - now;
-        reminderTimers[id] = setTimeout(() => {
-          triggerNotification(task);
-          task.notified = true;
-          saveAll();
-        }, ms);
-      }
-    }
-  }
+  // Reminder timers storage
+  let reminderTimers = [];
+
   function triggerNotification(task) {
     ensureNotificationPermission();
     if (Notification.permission === "granted") {
@@ -417,6 +442,7 @@ $(function () {
     populateProjectModal();
     editingProjectIndex = null;
     $("#projectSaveBtn").text("Save");
+    $("#projectDeleteBtn").hide();
     projectModal.show();
   });
   $("#projectSelectModal").on("change", function () {
@@ -425,11 +451,13 @@ $(function () {
       editingProjectIndex = null;
       $("#projectNameModal").val("");
       $("#projectColorModal").val("#6c757d");
+      $("#projectDeleteBtn").hide();
     } else {
       editingProjectIndex = Number(v);
       const p = projects[editingProjectIndex];
       $("#projectNameModal").val(p.name);
       $("#projectColorModal").val(p.color);
+      $("#projectDeleteBtn").show();
     }
   });
   $("#projectForm").on("submit", function (e) {
@@ -445,6 +473,45 @@ $(function () {
       projects[editingProjectIndex].name = name;
       projects[editingProjectIndex].color = color;
     }
+    saveAll();
+    renderProjectsSelect();
+    renderTasks();
+    projectModal.hide();
+  });
+
+  $("#projectDeleteBtn").on("click", function () {
+    if (editingProjectIndex === null) return;
+
+    // Check if this is the last project
+    if (projects.length === 1) {
+      alert("Cannot delete the last project. At least one project is required.");
+      return;
+    }
+
+    // Check if any tasks are using this project
+    const tasksUsingProject = tasks.filter(t => t.project === editingProjectIndex);
+    if (tasksUsingProject.length > 0) {
+      if (!confirm(`This project has ${tasksUsingProject.length} task(s). Delete anyway? Tasks will be moved to the first project.`)) {
+        return;
+      }
+      // Move tasks to first project (index 0)
+      tasksUsingProject.forEach(t => t.project = 0);
+    } else {
+      if (!confirm("Delete this project? This cannot be undone.")) {
+        return;
+      }
+    }
+
+    // Remove the project
+    projects.splice(editingProjectIndex, 1);
+
+    // Update all task project indices that are higher than the deleted index
+    tasks.forEach(t => {
+      if (t.project > editingProjectIndex) {
+        t.project--;
+      }
+    });
+
     saveAll();
     renderProjectsSelect();
     renderTasks();
@@ -513,22 +580,9 @@ $(function () {
     $("#newChecklistText").val("");
   });
 
-  /* dynamic checklist remove/change handlers */
+  /* dynamic checklist remove handler */
   $(document).on("click", ".checklist-remove", function () {
-    const $c = $("#checklistContainer");
-    const items = [];
-    $c.find(".input-group").each(function (idx) {
-      if (this !== $(this)[0]) {
-      } // noop
-    });
-    // rebuild excluding removed
-    const newItems = [];
-    $c.find(".input-group").each(function () {
-      const $this = $(this);
-      if ($this.find(".checklist-remove")[0] === this) {
-      }
-    });
-    // simpler: rebuild from DOM after removing parent then render
+    // Simply remove the parent input-group
     $(this).closest(".input-group").remove();
   });
 
@@ -650,10 +704,8 @@ $(function () {
   ensureNotificationPermission();
   function scheduleReminders() {
     // cancel existing timers
-    if (window._scrumIQReminderTimers) {
-      window._scrumIQReminderTimers.forEach((t) => clearTimeout(t));
-    }
-    window._scrumIQReminderTimers = [];
+    reminderTimers.forEach((t) => clearTimeout(t));
+    reminderTimers = [];
     const offsetMin = Number(settings.reminderOffset || 10);
     tasks.forEach((task) => {
       if (!task.due || task.notified) return;
@@ -672,44 +724,10 @@ $(function () {
           task.notified = true;
           saveAll();
         }, ms);
-        window._scrumIQReminderTimers.push(t);
+        reminderTimers.push(t);
       }
     });
     saveAll();
-  }
-
-  /* ---------------------------
-   IMPORT/EXPORT implementations
-   --------------------------- */
-  function exportJSON() {
-    const payload = { projects, tasks, settings, exportedAt: new Date().toISOString() };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `scrumIQ_export_${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-  function importJSON(file) {
-    const r = new FileReader();
-    r.onload = function (e) {
-      try {
-        const payload = JSON.parse(e.target.result);
-        if (!payload) throw new Error("Invalid file");
-        if (!confirm("Replace current data with imported data? This cannot be undone.")) return;
-        projects = payload.projects || [];
-        tasks = payload.tasks || [];
-        settings = payload.settings || settings;
-        saveAll();
-        renderProjectsSelect();
-        renderTasks();
-        scheduleReminders();
-      } catch (err) {
-        alert("Import failed: " + err.message);
-      }
-    };
-    r.readAsText(file);
   }
 
   /* ---------------------------
