@@ -327,43 +327,65 @@ $(function () {
   /* ---------------------------
    SEARCH / FILTER
    --------------------------- */
-  function applySearchFilter(q) {
-    q = String(q || "")
-      .trim()
-      .toLowerCase();
-    if (!q) {
+  function applySearchFilter(q, filters = {}) {
+    q = String(q || "").trim().toLowerCase();
+
+    // Get filter values
+    const typeFilter = filters.type || $("#filterType").val();
+    const priorityFilter = filters.priority || $("#filterPriority").val();
+    const stageFilter = filters.stage || $("#filterStage").val();
+
+    if (!q && !typeFilter && !priorityFilter && !stageFilter) {
       $(".card, #backlogTable tbody tr").removeClass("d-none");
       $(".placeholder").removeClass("d-none");
       return;
     }
+
     $(".placeholder").addClass("d-none");
-    // cards
+
+    function matchesFilters(task) {
+      // Text search
+      if (q) {
+        const hay = ((task.title || "") + " " + (task.description || "") + " " + (task.tags ? task.tags.join(" ") : "")).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+
+      // Type filter
+      if (typeFilter && task.type !== typeFilter) return false;
+
+      // Priority filter
+      if (priorityFilter && task.priority !== priorityFilter) return false;
+
+      // Stage filter
+      if (stageFilter && task.stage !== stageFilter) return false;
+
+      return true;
+    }
+
+    // Filter cards
     $(".card").each(function () {
       const $c = $(this);
       const id = $c.data("id");
       const task = findTask(id);
-      if (!task) {
+      if (!task || !matchesFilters(task)) {
         $c.addClass("d-none");
-        return;
+      } else {
+        $c.removeClass("d-none");
       }
-      const hay = ((task.title || "") + " " + (task.description || "") + " " + (task.tags ? task.tags.join(" ") : "")).toLowerCase();
-      if (hay.indexOf(q) !== -1) $c.removeClass("d-none");
-      else $c.addClass("d-none");
     });
-    // backlog rows
+
+    // Filter backlog rows
     $("#backlogTable tbody tr")
       .not(".placeholder")
       .each(function () {
         const $r = $(this);
         const id = $r.data("id");
         const task = findTask(id);
-        if (!task) {
+        if (!task || !matchesFilters(task)) {
           $r.addClass("d-none");
-          return;
+        } else {
+          $r.removeClass("d-none");
         }
-        const hay = ((task.title || "") + " " + (task.description || "") + " " + (task.tags ? task.tags.join(" ") : "")).toLowerCase();
-        if (hay.indexOf(q) !== -1) $r.removeClass("d-none");
-        else $r.addClass("d-none");
       });
   }
 
@@ -380,14 +402,90 @@ $(function () {
     a.click();
     URL.revokeObjectURL(url);
   }
+  function validateImportData(payload) {
+    const errors = [];
+
+    // Check basic structure
+    if (!payload || typeof payload !== 'object') {
+      errors.push("Invalid file format");
+      return errors;
+    }
+
+    // Validate projects array
+    if (payload.projects) {
+      if (!Array.isArray(payload.projects)) {
+        errors.push("Projects must be an array");
+      } else {
+        payload.projects.forEach((p, idx) => {
+          if (!p.name || typeof p.name !== 'string') {
+            errors.push(`Project ${idx}: missing or invalid name`);
+          }
+          if (!p.color || typeof p.color !== 'string') {
+            errors.push(`Project ${idx}: missing or invalid color`);
+          }
+        });
+      }
+    }
+
+    // Validate tasks array
+    if (payload.tasks) {
+      if (!Array.isArray(payload.tasks)) {
+        errors.push("Tasks must be an array");
+      } else {
+        payload.tasks.forEach((t, idx) => {
+          if (!t.id) errors.push(`Task ${idx}: missing ID`);
+          if (!t.title || typeof t.title !== 'string') {
+            errors.push(`Task ${idx}: missing or invalid title`);
+          }
+          if (t.project !== undefined && typeof t.project !== 'number') {
+            errors.push(`Task ${idx}: invalid project index`);
+          }
+          if (t.stage && !['backlog', 'todo', 'inprogress', 'qa', 'done'].includes(t.stage)) {
+            errors.push(`Task ${idx}: invalid stage "${t.stage}"`);
+          }
+          if (t.type && !['Story', 'Bug'].includes(t.type)) {
+            errors.push(`Task ${idx}: invalid type "${t.type}"`);
+          }
+          if (t.tags && !Array.isArray(t.tags)) {
+            errors.push(`Task ${idx}: tags must be an array`);
+          }
+          if (t.checklist && !Array.isArray(t.checklist)) {
+            errors.push(`Task ${idx}: checklist must be an array`);
+          }
+        });
+      }
+    }
+
+    // Validate settings
+    if (payload.settings && typeof payload.settings !== 'object') {
+      errors.push("Settings must be an object");
+    }
+
+    return errors;
+  }
+
   function importJSON(file) {
     const reader = new FileReader();
     reader.onload = function (e) {
       try {
         const payload = JSON.parse(e.target.result);
+
+        // Validate the imported data
+        const validationErrors = validateImportData(payload);
+        if (validationErrors.length > 0) {
+          const errorMsg = "Import validation failed:\n\n" + validationErrors.slice(0, 10).join("\n");
+          if (validationErrors.length > 10) {
+            alert(errorMsg + `\n\n...and ${validationErrors.length - 10} more errors`);
+          } else {
+            alert(errorMsg);
+          }
+          return;
+        }
+
         if (!payload || (!payload.tasks && !payload.projects && !payload.settings)) {
           if (!confirm("No recognizable data found. Replace existing data anyway?")) return;
         }
+
         if (confirm("Replace current data with imported data? This cannot be undone.")) {
           projects = payload.projects || [];
           tasks = payload.tasks || [];
@@ -396,6 +494,7 @@ $(function () {
           renderProjectsSelect();
           renderTasks();
           scheduleReminders();
+          alert("Import successful!");
         }
       } catch (err) {
         alert("Import failed: " + err.message);
@@ -523,6 +622,7 @@ $(function () {
     editingTaskId = null;
     $("#taskModalTitle").text("New Task");
     $("#taskSaveBtn").text("Create");
+    $("#taskDeleteBtn").hide();
     $("#taskTitle").val("");
     $("#taskProject").val(0);
     $("#taskType").val("Story");
@@ -547,6 +647,7 @@ $(function () {
     editingTaskId = id;
     $("#taskModalTitle").text("Edit Task");
     $("#taskSaveBtn").text("Update");
+    $("#taskDeleteBtn").show();
     $("#taskTitle").val(task.title);
     $("#taskProject").val(task.project);
     $("#taskType").val(task.type || "Story");
@@ -646,7 +747,43 @@ $(function () {
     taskModal.hide();
   });
 
-  /* quick move from backlog row: click row to open editing? we preserve previous 'move' behaviour by double-click example omitted to keep simple */
+  /* Task delete button handler */
+  $("#taskDeleteBtn").on("click", function () {
+    if (editingTaskId === null) return;
+
+    if (!confirm("Permanently delete this task? This cannot be undone.")) {
+      return;
+    }
+
+    const taskIndex = tasks.findIndex(t => t.id === editingTaskId);
+    if (taskIndex !== -1) {
+      tasks.splice(taskIndex, 1);
+      saveAll();
+      renderTasks();
+      taskModal.hide();
+    }
+  });
+
+  /* Click backlog row to edit task */
+  $(document).on("click", "#backlogTable tbody tr:not(.placeholder)", function () {
+    const id = $(this).data("id");
+    const task = findTask(id);
+    if (!task) return;
+
+    editingTaskId = id;
+    $("#taskModalTitle").text("Edit Task");
+    $("#taskSaveBtn").text("Update");
+    $("#taskDeleteBtn").show();
+    $("#taskTitle").val(task.title);
+    $("#taskProject").val(task.project);
+    $("#taskType").val(task.type || "Story");
+    $("#taskPriority").val(task.priority || "Medium");
+    $("#taskDue").val(task.due ? new Date(task.due).toISOString().slice(0, 16) : "");
+    $("#taskTags").val((task.tags || []).join(","));
+    $("#taskDescription").val(task.description || "");
+    renderChecklist($("#checklistContainer"), task.checklist || []);
+    taskModal.show();
+  });
 
   /* delegated close button to mark closed */
   $(document).on("click", ".close-btn", function () {
@@ -686,6 +823,32 @@ $(function () {
    --------------------------- */
   $("#searchInput").on("input", function () {
     applySearchFilter(this.value);
+  });
+
+  // Show filter dropdown on focus
+  $("#searchInput").on("focus", function () {
+    $("#searchFilters").addClass("show");
+  });
+
+  // Hide filter dropdown when clicking outside
+  $(document).on("click", function (e) {
+    if (!$(e.target).closest("#searchInput, #searchFilters").length) {
+      $("#searchFilters").removeClass("show");
+    }
+  });
+
+  // Apply filters when dropdowns change
+  $("#filterType, #filterPriority, #filterStage").on("change", function () {
+    applySearchFilter($("#searchInput").val());
+  });
+
+  // Clear all filters
+  $("#clearFilters").on("click", function () {
+    $("#searchInput").val("");
+    $("#filterType").val("");
+    $("#filterPriority").val("");
+    $("#filterStage").val("");
+    applySearchFilter("");
   });
 
   /* ---------------------------
@@ -747,5 +910,77 @@ $(function () {
       $(".droppable").sortable("refresh");
       $("#backlogTable tbody").sortable("refresh");
     } catch (e) {}
+  });
+
+  /* ---------------------------
+   KEYBOARD SHORTCUTS
+   --------------------------- */
+  $(document).on("keydown", function (e) {
+    // Ignore if typing in input/textarea
+    if ($(e.target).is("input, textarea, select")) return;
+
+    // Ignore if modal is open (except for Esc)
+    if ($(".modal.show").length && e.key !== "Escape") return;
+
+    // N - New Task
+    if (e.key === "n" || e.key === "N") {
+      e.preventDefault();
+      openTaskModalForCreate();
+    }
+
+    // P - Projects
+    if (e.key === "p" || e.key === "P") {
+      e.preventDefault();
+      $("#editProjectsBtn").click();
+    }
+
+    // S - Settings
+    if (e.key === "s" || e.key === "S") {
+      e.preventDefault();
+      $("#settingsBtn").click();
+    }
+
+    // / - Focus search
+    if (e.key === "/") {
+      e.preventDefault();
+      $("#searchInput").focus();
+    }
+
+    // Ctrl/Cmd + E - Export
+    if ((e.ctrlKey || e.metaKey) && e.key === "e") {
+      e.preventDefault();
+      exportJSON();
+    }
+
+    // ? - Show keyboard shortcuts help
+    if (e.key === "?") {
+      e.preventDefault();
+      showKeyboardShortcutsHelp();
+    }
+  });
+
+  function showKeyboardShortcutsHelp() {
+    const shortcuts = `
+Keyboard Shortcuts:
+
+N - Create new task
+P - Edit projects
+S - Open settings
+/ - Focus search
+? - Show this help
+
+Ctrl/Cmd + E - Export data
+Esc - Close modal
+    `.trim();
+    alert(shortcuts);
+  }
+
+  /* ---------------------------
+   CLEANUP on page unload to prevent memory leaks
+   --------------------------- */
+  $(window).on("beforeunload", () => {
+    // Clear all reminder timers
+    reminderTimers.forEach((t) => clearTimeout(t));
+    reminderTimers = [];
   });
 }); // end jQuery ready

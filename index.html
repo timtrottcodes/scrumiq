@@ -11,17 +11,42 @@
 <body>
 
 <!-- App Bar -->
-<nav class="navbar fixed-top navbar-expand-lg bg-body-tertiary border-bottom">
+<nav class="navbar fixed-top navbar-expand-lg bg-body-tertiary border-bottom" role="navigation" aria-label="Main navigation">
   <div class="container-fluid">
-    <a class="navbar-brand" href="#">ScrumIQ</a>
+    <a class="navbar-brand" href="#" aria-label="ScrumIQ Home">ScrumIQ</a>
 
     <div class="ms-auto d-flex align-items-center appbar-btns">
-      <input id="searchInput" class="form-control form-control-sm appbar-search" placeholder="Search tasks, tags..." title="Search by title, description, tags">
-      <button class="btn btn-sm btn-success" id="newTaskBtn">New Issue</button>
-      <button class="btn btn-sm btn-primary" id="editProjectsBtn">Edit Projects</button>
-      <button class="btn btn-sm btn-secondary" id="settingsBtn">Settings</button>
+      <div class="dropdown">
+        <input id="searchInput" class="form-control form-control-sm appbar-search" placeholder="Search tasks, tags..." title="Search by title, description, tags. Use filters: type:Bug, priority:High, project:Name, stage:todo" aria-label="Search tasks">
+        <div class="dropdown-menu p-2" id="searchFilters" style="min-width: 250px;">
+          <small class="text-muted d-block mb-2">Quick Filters:</small>
+          <select id="filterType" class="form-select form-select-sm mb-1">
+            <option value="">All Types</option>
+            <option value="Story">Stories</option>
+            <option value="Bug">Bugs</option>
+          </select>
+          <select id="filterPriority" class="form-select form-select-sm mb-1">
+            <option value="">All Priorities</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+          </select>
+          <select id="filterStage" class="form-select form-select-sm mb-1">
+            <option value="">All Stages</option>
+            <option value="backlog">Backlog</option>
+            <option value="todo">To Do</option>
+            <option value="inprogress">In Progress</option>
+            <option value="qa">QA</option>
+            <option value="done">Done</option>
+          </select>
+          <button class="btn btn-sm btn-outline-secondary w-100" id="clearFilters">Clear Filters</button>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-success" id="newTaskBtn" aria-label="Create new task">New Issue</button>
+      <button class="btn btn-sm btn-primary" id="editProjectsBtn" aria-label="Edit projects">Edit Projects</button>
+      <button class="btn btn-sm btn-secondary" id="settingsBtn" aria-label="Open settings">Settings</button>
       <div class="form-check form-switch ms-2">
-        <input class="form-check-input" type="checkbox" id="darkModeToggle"/>
+        <input class="form-check-input" type="checkbox" id="darkModeToggle" aria-label="Toggle dark mode"/>
         <label class="form-check-label" for="darkModeToggle">Dark</label>
       </div>
     </div>
@@ -29,25 +54,25 @@
 </nav>
 
 <div class="container" style="margin-top:4em">
-  <div class="board">
-    <div class="column" data-stage="todo"><h5>To Do</h5><div class="droppable"></div></div>
-    <div class="column" data-stage="inprogress"><h5>In Progress</h5><div class="droppable"></div></div>
-    <div class="column" data-stage="qa"><h5>QA</h5><div class="droppable"></div></div>
-    <div class="column" data-stage="done"><h5>Done</h5><div class="droppable"></div></div>
+  <div class="board" role="region" aria-label="Task board">
+    <div class="column" data-stage="todo" role="region" aria-label="To Do tasks"><h5>To Do</h5><div class="droppable"></div></div>
+    <div class="column" data-stage="inprogress" role="region" aria-label="In Progress tasks"><h5>In Progress</h5><div class="droppable"></div></div>
+    <div class="column" data-stage="qa" role="region" aria-label="QA tasks"><h5>QA</h5><div class="droppable"></div></div>
+    <div class="column" data-stage="done" role="region" aria-label="Done tasks"><h5>Done</h5><div class="droppable"></div></div>
   </div>
 
   <h5>Backlog</h5>
-  <table class="table table-striped" id="backlogTable">
-    <thead><tr><th>Title</th><th>Type</th><th>Project</th><th>Due</th></tr></thead>
+  <table class="table table-striped" id="backlogTable" role="table" aria-label="Backlog tasks">
+    <thead><tr><th scope="col">Title</th><th scope="col">Type</th><th scope="col">Project</th><th scope="col">Due</th></tr></thead>
     <tbody></tbody>
   </table>
 </div>
 
 <!-- Project modal (select + edit / new) -->
-<div class="modal fade" id="projectModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="projectModal" tabindex="-1" aria-labelledby="projectModalTitle" aria-hidden="true">
   <div class="modal-dialog">
-    <form class="modal-content" id="projectForm">
-      <div class="modal-header"><h5 class="modal-title">Edit Projects</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <form class="modal-content" id="projectForm" aria-label="Edit projects form">
+      <div class="modal-header"><h5 class="modal-title" id="projectModalTitle">Edit Projects</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
       <div class="modal-body">
         <label for="projectSelectModal" class="form-label">Select Project</label>
         <select id="projectSelectModal" class="form-select mb-3"></select>
@@ -69,12 +94,12 @@
 </div>
 
 <!-- Task modal (create/edit) -->
-<div class="modal fade" id="taskModal" tabindex="-1">
+<div class="modal fade" id="taskModal" tabindex="-1" aria-labelledby="taskModalTitle" aria-hidden="true">
   <div class="modal-dialog modal-lg">
-    <form class="modal-content" id="taskForm">
+    <form class="modal-content" id="taskForm" aria-label="Task form">
       <div class="modal-header">
         <h5 class="modal-title" id="taskModalTitle">New Task</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <div class="row g-2">
@@ -122,6 +147,8 @@
         </div>
       </div>
       <div class="modal-footer">
+        <button id="taskDeleteBtn" class="btn btn-danger" type="button">Delete</button>
+        <div class="flex-fill"></div>
         <button id="taskSaveBtn" class="btn btn-primary" type="submit">Create</button>
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
       </div>
@@ -130,10 +157,10 @@
 </div>
 
 <!-- Settings modal (Auto-Stage rules, reminder preference) -->
-<div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalTitle" aria-hidden="true">
   <div class="modal-dialog">
-    <form class="modal-content" id="settingsForm">
-      <div class="modal-header"><h5 class="modal-title">Settings</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <form class="modal-content" id="settingsForm" aria-label="Settings form">
+      <div class="modal-header"><h5 class="modal-title" id="settingsModalTitle">Settings</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
       <div class="modal-body">
         <div class="form-check form-switch mb-2">
           <input class="form-check-input" id="ruleAutoBugToTodo" type="checkbox">
